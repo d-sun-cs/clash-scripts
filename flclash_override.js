@@ -2,24 +2,30 @@
 // 用户自定义配置区域 (修改这里即可，无需翻看下方代码)
 // ============================================================
 
-// 1. 【限制服务】规则列表：
-// 这里的域名会强制走“限制服务”节点（通常用于 AI 服务）
-const MY_AI_RULES = [
-  "DOMAIN-SUFFIX,clients6.google.com,限制服务",
-  "DOMAIN,gemini.google.com,限制服务",
-  "DOMAIN,notebooklm.google.com,限制服务",
-  "DOMAIN,one.google.com,限制服务",
-  "DOMAIN-SUFFIX,chatgpt.com,限制服务",
-  "DOMAIN-SUFFIX,openai.com,限制服务",
-  "DOMAIN-SUFFIX,claude.com,限制服务",
-  "DOMAIN-SUFFIX,claude.ai,限制服务"
-];
+// 1. 自定义规则列表：
+const MY_RULES = [
+  // 广告拦截
+  "RULE-SET,reject,REJECT",
 
-// 2. 【DIRECT】直连规则列表：
-// 这里的域名/关键字会强制直连（不走代理）
-const MY_DIRECT_RULES = [
+  // 特殊服务 (AI 服务等)
+  "RULE-SET,special_services,限制服务",
+
   "DOMAIN-KEYWORD,dockerproxy,DIRECT", // 示例：取消注释即可生效
-  // "DOMAIN-KEYWORD,daocloud,DIRECT"
+  // "DOMAIN-KEYWORD,daocloud,DIRECT",
+
+  // --- 中国大陆域名与 IP (白名单模式核心) ---
+  // "RULE-SET,direct,DIRECT",
+  "RULE-SET,cncidr,DIRECT",
+  "GEOIP,CN,DIRECT",
+
+  // --- 局域网与私有地址 (必须直连) ---
+  "RULE-SET,lancidr,DIRECT",
+  "RULE-SET,private,DIRECT",
+  "GEOIP,LAN,DIRECT",
+  "GEOIP,PRIVATE,DIRECT",
+
+  // --- 兜底规则 ---
+  "MATCH,快速服务"
 ];
 
 // ============================================================
@@ -72,8 +78,15 @@ function main(config) {
     }
   ];
 
-  // 4. 定义 Rule Providers (Loyalsoldier 规则集)
+  // 4. 定义 Rule Providers (规则集)
   const ruleProviders = {
+    "special_services": {
+      type: "http",
+      behavior: "domain",
+      url: "https://cdn.jsdelivr.net/gh/d-sun-cs/clash-scripts@main/special_services.txt",
+      path: "./ruleset/special_services.yaml",
+      interval: 86400
+    },
     "reject": {
       type: "http",
       behavior: "domain",
@@ -113,34 +126,12 @@ function main(config) {
 
   // 5. 定义规则 (Rules)
   // 使用 ...语法 将顶部的自定义数组展开插入到规则列表中
-  const rules = [
-    // --- 1. 插入顶部的自定义 AI/限制规则 ---
-    ...MY_AI_RULES,
-
-    // --- 2. 广告拦截 ---
-    "RULE-SET,reject,REJECT",
-
-    // --- 3. 插入顶部的自定义直连规则 ---
-    ...MY_DIRECT_RULES,
-
-    // --- 4. 局域网与私有地址 (必须直连) ---
-    "RULE-SET,lancidr,DIRECT",
-    "RULE-SET,private,DIRECT",
-    "GEOIP,LAN,DIRECT",
-    "GEOIP,PRIVATE,DIRECT",
-
-    // --- 5. 中国大陆域名与 IP (白名单模式核心) ---
-    "RULE-SET,direct,DIRECT",
-    "RULE-SET,cncidr,DIRECT",
-    "GEOIP,CN,DIRECT",
-
-    // --- 6. 兜底规则 ---
-    "MATCH,快速服务"
-  ];
+  // const rules = MY_RULES;
 
   // 6. 将新的配置覆盖回 config 对象
   config["proxy-groups"] = groups;
-  config["rules"] = rules;
+  // config["rules"] = rules;
+  config["rules"] = MY_RULES;
   config["rule-providers"] = ruleProviders;
 
   return config;

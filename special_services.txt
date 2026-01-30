@@ -1,0 +1,9 @@
+payload:
+  - DOMAIN-SUFFIX,clients6.google.com
+  - DOMAIN,gemini.google.com
+  - DOMAIN,notebooklm.google.com
+  - DOMAIN,one.google.com
+  - DOMAIN-SUFFIX,chatgpt.com
+  - DOMAIN-SUFFIX,openai.com
+  - DOMAIN-SUFFIX,claude.com
+  - DOMAIN-SUFFIX,claude.ai

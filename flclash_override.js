@@ -15,6 +15,7 @@ const MY_RULES = [
 
   // --- 中国大陆域名与 IP (白名单模式核心) ---
   // "RULE-SET,direct,DIRECT",
+  "RULE-SET,cn,DIRECT",
   "RULE-SET,cncidr,DIRECT",
   "GEOIP,CN,DIRECT",
 
@@ -83,7 +84,7 @@ function main(config) {
     "special_services": {
       type: "http",
       behavior: "domain",
-      url: "https://cdn.jsdelivr.net/gh/d-sun-cs/clash-scripts@main/special_services.txt",
+      url: "https://raw.githubusercontent.com/d-sun-cs/clash-scripts/main/special_services.txt",
       path: "./ruleset/special_services.yaml",
       interval: 86400
     },
@@ -113,6 +114,13 @@ function main(config) {
       behavior: "domain",
       url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt",
       path: "./ruleset/direct.yaml",
+      interval: 86400
+    },
+    "cn": {
+      type: "http",
+      behavior: "domain",
+      url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.yaml",
+      path: "./provider/rule-set/cn_domain.yaml",
       interval: 86400
     },
     "cncidr": {

@@ -10,8 +10,9 @@ const MY_RULES = [
   // 特殊服务 (AI 服务等)
   "RULE-SET,special_services,限制服务",
 
-  "DOMAIN-KEYWORD,dockerproxy,DIRECT", // 示例：取消注释即可生效
-  // "DOMAIN-KEYWORD,daocloud,DIRECT",
+  "DOMAIN-KEYWORD,dockerproxy,DIRECT", 
+  "DOMAIN-KEYWORD,daocloud,DIRECT",
+  "DOMAIN,learn.microsoft.com,DIRECT",
 
   // --- 中国大陆域名与 IP (白名单模式核心) ---
   // "RULE-SET,direct,DIRECT",

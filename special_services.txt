@@ -1,9 +1,22 @@
 payload:
-  - '+.clients6.google.com'
+  # Gemini & AI Studio
+  - 'aistudio.google.com'
+  - 'alkalimakersuite-pa.clients6.google.com'
+  - 'generativelanguage.googleapis.com'
   - 'gemini.google.com'
   - 'notebooklm.google.com'
-  - 'one.google.com'
-  - '+.chatgpt.com'
-  - '+.openai.com'
-  - '+.claude.com'
-  - '+.claude.ai'
+  
+  # OpenAI / ChatGPT
+  - 'chatgpt.com'
+  - 'openai.com'
+  - 'oaistatic.com'
+  - 'oaiusercontent.com'
+  - 'chat.openai.com.cdn.cloudflare.net'
+
+  # Claude
+  - 'claude.ai'
+  - 'anthropic.com'
+  
+  # 其他 AI 常用
+  - 'sentry.io' # 某些 AI 登录时的校验
+  - 'ident.me'  # 某些服务检查出口 IP 的请求

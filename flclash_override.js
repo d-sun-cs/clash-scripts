@@ -7,12 +7,12 @@ const MY_RULES = [
   // 广告拦截
   "RULE-SET,reject,REJECT",
 
-  // 特殊服务 (AI 服务等)
-  "RULE-SET,special_services,限制服务",
+  // 特殊服务 (AI 服务等) -> 指向：2. 限制服务
+  "RULE-SET,special_services,2. 限制服务",
 
-  "DOMAIN-KEYWORD,dockerproxy,DIRECT", 
-  "DOMAIN-KEYWORD,daocloud,DIRECT",
+  "DOMAIN-KEYWORD,dockerproxy,DIRECT", // 示例：取消注释即可生效
   "DOMAIN,learn.microsoft.com,DIRECT",
+  // "DOMAIN-KEYWORD,daocloud,DIRECT",
 
   // --- 中国大陆域名与 IP (白名单模式核心) ---
   // "RULE-SET,direct,DIRECT",
@@ -26,8 +26,8 @@ const MY_RULES = [
   "GEOIP,LAN,DIRECT",
   "GEOIP,PRIVATE,DIRECT",
 
-  // --- 兜底规则 ---
-  "MATCH,快速服务"
+  // --- 兜底规则 -> 指向：1. 快速服务 ---
+  "MATCH,1. 快速服务"
 ];
 
 // ============================================================
@@ -50,33 +50,49 @@ function main(config) {
     })
     .map(p => p.name);
 
-  // 3. 定义策略组
+  // 兜底：如果节点为空，则填入 DIRECT 避免报错
+  const allNames = allProxyNames.length > 0 ? allProxyNames : ["DIRECT"];
+  const restrictedNames = restrictedProxyNames.length > 0 ? restrictedProxyNames : ["DIRECT"];
+
+  // 3. 定义策略组 (加入数字前缀控制面板排序)
   const groups = [
     {
-      // 【快速服务】：包含所有节点
-      name: "快速服务",
-      type: "url-test",
-      url: 'https://www.gstatic.com/generate_204',
-      interval: 300,
-      timeout: 2000,
-      tolerance: 50,
-      proxies: allProxyNames.length > 0 ? allProxyNames : ["DIRECT"]
-    },
-    {
-      // 【限制服务】：只包含非港台节点
-      name: "限制服务",
-      type: "url-test",
-      url: 'https://www.gstatic.com/generate_204',
-      interval: 300,
-      timeout: 2000,
-      tolerance: 50,
-      proxies: restrictedProxyNames.length > 0 ? restrictedProxyNames : ["DIRECT"]
-    },
-    {
-      // 【原始】：手动选择
-      name: "原始",
+      // 1. 手动选择的快速服务 (默认包含自动、原始、以及所有可用节点)
+      name: "1. 快速服务",
       type: "select",
-      proxies: allProxyNames.length > 0 ? allProxyNames : ["DIRECT"]
+      proxies: ["3. 快速自动", "5. 原始节点", ...allNames]
+    },
+    {
+      // 2. 手动选择的限制服务 (默认包含自动、原始、以及所有非港台节点)
+      name: "2. 限制服务",
+      type: "select",
+      proxies: ["4. 限制自动", "5. 原始节点", ...restrictedNames]
+    },
+    {
+      // 3. 自动优选的快速服务
+      name: "3. 快速自动",
+      type: "url-test",
+      url: 'https://www.gstatic.com/generate_204',
+      interval: 300,
+      timeout: 2000,
+      tolerance: 50,
+      proxies: allNames
+    },
+    {
+      // 4. 自动优选的限制服务
+      name: "4. 限制自动",
+      type: "url-test",
+      url: 'https://www.gstatic.com/generate_204',
+      interval: 300,
+      timeout: 2000,
+      tolerance: 50,
+      proxies: restrictedNames
+    },
+    {
+      // 5. 原始所有节点的手动选择集合
+      name: "5. 原始节点",
+      type: "select",
+      proxies: allNames
     }
   ];
 
@@ -85,7 +101,7 @@ function main(config) {
     "special_services": {
       type: "http",
       behavior: "domain",
-      url: "https://raw.githubusercontent.com/d-sun-cs/clash-scripts/main/special_services.txt",
+      url: "https://cdn.jsdelivr.net/gh/d-sun-cs/clash-scripts@main/special_services.txt",
       path: "./ruleset/special_services.yaml",
       interval: 86400
     },
@@ -133,15 +149,21 @@ function main(config) {
     }
   };
 
-  // 5. 定义规则 (Rules)
-  // 使用 ...语法 将顶部的自定义数组展开插入到规则列表中
-  // const rules = MY_RULES;
-
-  // 6. 将新的配置覆盖回 config 对象
+  // 5. 将新的配置覆盖回 config 对象
   config["proxy-groups"] = groups;
-  // config["rules"] = rules;
   config["rules"] = MY_RULES;
   config["rule-providers"] = ruleProviders;
+  
+  // 6. 解决openai相关dns解析问题
+  config.sniffer = {
+    enable: true,
+    "parse-pure-ip": true,
+    "override-destination": true,
+    sniff: {
+      TLS: { ports: [443, 8443] },
+      QUIC: { ports: [443, 8443] }
+    }
+  };  
 
   return config;
 }

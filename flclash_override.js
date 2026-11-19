@@ -4,6 +4,9 @@
 
 // 1. 自定义规则列表：
 const MY_RULES = [
+  
+  "RULE-SET,private,DIRECT",
+  
   // 广告拦截
   "RULE-SET,reject,REJECT",
 
@@ -22,7 +25,7 @@ const MY_RULES = [
 
   // --- 局域网与私有地址 (必须直连) ---
   "RULE-SET,lancidr,DIRECT",
-  "RULE-SET,private,DIRECT",
+
   "GEOIP,LAN,DIRECT",
   "GEOIP,PRIVATE,DIRECT",
 
@@ -35,64 +38,66 @@ const MY_RULES = [
 // ============================================================
 
 function main(config) {
-  // 1. 获取订阅中的所有代理节点
-  const proxies = config.proxies || [];
+  const allNames = (config.proxies ?? []).map(proxy => proxy.name);
+  const sources = Object.keys(config["proxy-providers"] ?? {});
+  if (!allNames.length && !sources.length) return config;
 
-  // 提取所有节点的名称
-  const allProxyNames = proxies.map(p => p.name);
+  const originalGroups = config["proxy-groups"] ?? [];
+  const groupNames = new Set([...allNames, ...sources, ...originalGroups.map(group => group.name)]);
+  const fast = reserveName(groupNames, "1. 快速服务");
+  const restricted = reserveName(groupNames, "2. 限制服务");
+  const fastAuto = reserveName(groupNames, "3. 快速自动");
+  const restrictedAuto = reserveName(groupNames, "4. 限制自动");
+  const manual = reserveName(groupNames, "5. 原始节点");
+  const groupAliases = new Map([
+    ["1. 快速服务", fast], ["2. 限制服务", restricted],
+    ["3. 快速自动", fastAuto], ["4. 限制自动", restrictedAuto],
+    ["5. 原始节点", manual]
+  ]);
 
-  // 2. 生成【限制服务】的节点列表
-  // 逻辑：过滤掉名字里包含 "香港" 或 "台湾" 的节点
-  const restrictedProxyNames = proxies
-    .filter(p => {
-      const name = p.name;
-      return !name.includes('香港') && !name.includes('台湾');
-    })
-    .map(p => p.name);
-
-  // 兜底：如果节点为空，则填入 DIRECT 避免报错
-  const allNames = allProxyNames.length > 0 ? allProxyNames : ["DIRECT"];
-  const restrictedNames = restrictedProxyNames.length > 0 ? restrictedProxyNames : ["DIRECT"];
-
-  // 3. 定义策略组 (加入数字前缀控制面板排序)
+  const restrictedFilter = "香港|台湾";
+  const restrictedNames = allNames.filter(name => !/香港|台湾/.test(name));
+  const use = sources.length ? { use: sources } : {};
+  const restrictedUse = sources.length ? { ...use, "exclude-filter": restrictedFilter } : {};
+  const auto = {
+    type: "url-test",
+    url: "https://www.gstatic.com/generate_204",
+    interval: 300,
+    timeout: 2000,
+    tolerance: 50,
+    "empty-fallback": "REJECT"
+  };
   const groups = [
     {
-      // 1. 手动选择的快速服务 (默认包含自动、原始、以及所有可用节点)
-      name: "1. 快速服务",
+      name: fast,
       type: "select",
-      proxies: ["3. 快速自动", "5. 原始节点", ...allNames]
+      proxies: [fastAuto, manual, ...allNames],
+      ...use
     },
     {
-      // 2. 手动选择的限制服务 (默认包含自动、原始、以及所有非港台节点)
-      name: "2. 限制服务",
+      name: restricted,
       type: "select",
-      proxies: ["4. 限制自动", "5. 原始节点", ...restrictedNames]
+      proxies: [restrictedAuto, manual, ...restrictedNames],
+      ...restrictedUse
     },
     {
-      // 3. 自动优选的快速服务
-      name: "3. 快速自动",
-      type: "url-test",
-      url: 'https://www.gstatic.com/generate_204',
-      interval: 300,
-      timeout: 2000,
-      tolerance: 50,
-      proxies: allNames
+      name: fastAuto,
+      ...auto,
+      proxies: allNames,
+      ...use
     },
     {
-      // 4. 自动优选的限制服务
-      name: "4. 限制自动",
-      type: "url-test",
-      url: 'https://www.gstatic.com/generate_204',
-      interval: 300,
-      timeout: 2000,
-      tolerance: 50,
-      proxies: restrictedNames
+      name: restrictedAuto,
+      ...auto,
+      proxies: restrictedNames.length || sources.length ? restrictedNames : ["REJECT"],
+      ...restrictedUse
     },
     {
-      // 5. 原始所有节点的手动选择集合
-      name: "5. 原始节点",
+      name: manual,
       type: "select",
-      proxies: allNames
+      proxies: allNames,
+      "empty-fallback": "REJECT",
+      ...use
     }
   ];
 
@@ -102,68 +107,106 @@ function main(config) {
       type: "http",
       behavior: "domain",
       url: "https://cdn.jsdelivr.net/gh/d-sun-cs/clash-scripts@main/special_services.txt",
-      path: "./ruleset/special_services.yaml",
       interval: 86400
     },
     "reject": {
       type: "http",
       behavior: "domain",
       url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt",
-      path: "./ruleset/reject.yaml",
       interval: 86400
     },
     "lancidr": {
       type: "http",
       behavior: "ipcidr",
       url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt",
-      path: "./ruleset/lancidr.yaml",
       interval: 86400
     },
     "private": {
       type: "http",
       behavior: "domain",
       url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt",
-      path: "./ruleset/private.yaml",
       interval: 86400
     },
     "direct": {
       type: "http",
       behavior: "domain",
       url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt",
-      path: "./ruleset/direct.yaml",
       interval: 86400
     },
     "cn": {
       type: "http",
       behavior: "domain",
       url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.yaml",
-      path: "./provider/rule-set/cn_domain.yaml",
       interval: 86400
     },
     "cncidr": {
       type: "http",
       behavior: "ipcidr",
       url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt",
-      path: "./ruleset/cncidr.yaml",
       interval: 86400
     }
   };
 
-  // 5. 将新的配置覆盖回 config 对象
-  config["proxy-groups"] = groups;
-  config["rules"] = MY_RULES;
-  config["rule-providers"] = ruleProviders;
-  
-  // 6. 解决openai相关dns解析问题
-  config.sniffer = {
-    enable: true,
-    "parse-pure-ip": true,
-    "override-destination": true,
-    sniff: {
-      TLS: { ports: [443, 8443] },
-      QUIC: { ports: [443, 8443] }
-    }
-  };  
+  // 保留订阅规则集的名称和类型，供 DNS、子规则等继续引用。
+  const providers = { ...config["rule-providers"] };
+  const providerNames = new Set(Object.keys(providers));
+  const providerPaths = new Set(
+    [...Object.values(providers), ...Object.values(config["proxy-providers"] ?? {})]
+      .filter(provider => provider.path)
+      .map(provider => normalizePath(provider.path))
+  );
+  const providerAliases = new Map();
+  for (const [name, provider] of Object.entries(ruleProviders)) {
+    const alias = reserveName(providerNames, "flclash-override-" + name);
+    const cache = reserveName(providerPaths, "ruleset/" + alias + ".yaml");
+    providers[alias] = { ...provider, path: "./" + cache };
+    providerAliases.set(name, alias);
+  }
 
-  return config;
+  const rules = MY_RULES.map(rule => {
+    const parts = rule.replace(/(^|\()RULE-SET,\s*([^,)]+)/g, (match, prefix, name) => {
+      const alias = providerAliases.get(name.trim());
+      return alias ? prefix + "RULE-SET," + alias : match;
+    }).split(",");
+    const target = parts.length - (parts[parts.length - 1].trim() === "no-resolve" ? 2 : 1);
+    parts[target] = groupAliases.get(parts[target].trim()) ?? parts[target];
+    return parts.join(",");
+  });
+
+  return {
+    ...config,
+    "proxy-groups": [...groups, ...originalGroups],
+    "rule-providers": providers,
+    rules,
+    sniffer: config.sniffer ?? {
+      enable: true,
+      "parse-pure-ip": true,
+      "override-destination": true,
+      sniff: {
+        TLS: { ports: [443, 8443] },
+        QUIC: { ports: [443, 8443] }
+      }
+    }
+  };
+}
+
+function reserveName(used, preferred) {
+  let name = preferred;
+  for (let suffix = 2; used.has(name); suffix++) {
+    name = preferred + "-" + suffix;
+  }
+  used.add(name);
+  return name;
+}
+
+function normalizePath(path) {
+  const parts = [];
+  for (const part of path.toLowerCase().split(/[\\/]+/)) {
+    if (part === ".." && parts.length && parts[parts.length - 1] !== "..") {
+      parts.pop();
+    } else if (part && part !== ".") {
+      parts.push(part);
+    }
+  }
+  return parts.join("/");
 }
